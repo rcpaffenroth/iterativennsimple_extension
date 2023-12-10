@@ -9,8 +9,8 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 # For the computational code
-torch = {version = "^2.1.0+cpu", source = "pytorch"}
-torchvision = {version = "^0.16.0+cpu", source = "pytorch"}
+torch = {version = "2.1.0", source = "pytorch"}
+torchvision = {version = "0.16.0", source = "pytorch"}
 numpy = "1.25.*"
 # For data
 pandas = "2.1.*"
@@ -30,7 +30,7 @@ pylint = "3.0.*"
 
 [[tool.poetry.source]]
 name = "pytorch"
-url = "https://download.pytorch.org/whl/cpu"
+url = "https://download.pytorch.org/whl/cu118"
 priority = "explicit"
 
 [build-system]
