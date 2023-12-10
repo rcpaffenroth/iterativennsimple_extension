@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "template"
+version = "0.1.0"
+description = "template"
+authors = ["Randy Paffenroth <rcpaffenroth@wpi.edu>"]
+license = "BSD 3-Clause License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+# For the computational code
+torch = {version = "2.1.0", source = "pytorch"}
+torchvision = {version = "0.16.0", source = "pytorch"}
+numpy = "1.25.*"
+# For data
+pandas = "2.1.*"
+pyarrow = "13.0.*"
+# For the notebooks and vscode
+matplotlib = "3.8.*"
+ipykernel = "6.26.*"
+ipympl = "0.9.*"
+jupyterlab = "4.0.*"
+# huggingface transformers
+transformers = "4.11.*"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "7.4.*"
+pylint = "3.0.*"
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
