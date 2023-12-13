@@ -46,12 +46,21 @@ class Spy(torch.nn.Module):
         return output
 
 from transformers import AutoModelForSequenceClassification
-model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=5)
-
+#model_name = "bert-base-cased"
+model_name = "mistralai/Mistral-7B-v0.1"
+# The num+labels=5 means that the final classification layer will have 5 outputs
+# and will be unitialized, since the number of labels is not known.
+model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=5)
 print(model)
 
-my_spy = Spy(model.bert.encoder.layer[3])
-model.bert.encoder.layer[3] = my_spy
+if model_name == "bert-base-cased":
+    my_spy = Spy(model.bert.encoder.layer[3])
+    model.bert.encoder.layer[3] = my_spy
+elif model_name == "mistralai/Mistral-7B-v0.1":
+    my_spy = Spy(modelr.layers[5])
+    model.layers[5] = my_spy
+else:
+    raise ValueError(f"Unknown model {model_name}")
 
 optimizer = AdamW(model.parameters(), lr=5e-5)
 
