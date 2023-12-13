@@ -57,8 +57,8 @@ if model_name == "bert-base-cased":
     my_spy = Spy(model.bert.encoder.layer[3])
     model.bert.encoder.layer[3] = my_spy
 elif model_name == "mistralai/Mistral-7B-v0.1":
-    my_spy = Spy(modelr.layers[5])
-    model.layers[5] = my_spy
+    my_spy = Spy(model.model.layers[5])
+    model.model.layers[5] = my_spy
 else:
     raise ValueError(f"Unknown model {model_name}")
 
