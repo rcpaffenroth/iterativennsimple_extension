@@ -8,96 +8,114 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 import evaluate
 
-dataset = load_dataset("yelp_review_full")
-dataset["train"][100]
+import click
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+# model_name = "bert-base-cased"
+# model_name = "mistralai/Mistral-7B-v0.1"
 
-def tokenize_function(examples):
-    return tokenizer(examples["text"], padding="max_length", truncation=True)
+def run(model_name, cuda):
+    dataset = load_dataset("yelp_review_full")
+    dataset["train"][100]
 
-tokenized_datasets = dataset.map(tokenize_function, batched=True)
-tokenized_datasets = tokenized_datasets.remove_columns(["text"])
-tokenized_datasets = tokenized_datasets.rename_column("label", "labels")
-tokenized_datasets.set_format("torch")
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
-small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
-small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
+    def tokenize_function(examples):
+        return tokenizer(examples["text"], padding="max_length", truncation=True)
 
-train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=8)
-eval_dataloader = DataLoader(small_eval_dataset, batch_size=8)
+    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+    tokenized_datasets = tokenized_datasets.remove_columns(["text"])
+    tokenized_datasets = tokenized_datasets.rename_column("label", "labels")
+    tokenized_datasets.set_format("torch")
 
-class Spy(torch.nn.Module):
-    def __init__(self, model, debug=False):
-        super().__init__()
-        self.model = model
-        self.debug = debug
-        self.inputs = []
-        self.outputs = []
+    small_train_dataset = tokenized_datasets["train"].shuffle(seed=42).select(range(1000))
+    small_eval_dataset = tokenized_datasets["test"].shuffle(seed=42).select(range(1000))
 
-    def forward(self, *args, **kwargs):
-        self.inputs.append(args)
-        output = self.model(*args, **kwargs)
-        self.outputs.append(output)
-        if self.debug:
-            print(f'args {args}')
-            print(f'kwargs {kwargs}')
-            print(f'output {output}')
-        return output
+    train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=8)
+    eval_dataloader = DataLoader(small_eval_dataset, batch_size=8)
 
-from transformers import AutoModelForSequenceClassification
-#model_name = "bert-base-cased"
-model_name = "mistralai/Mistral-7B-v0.1"
-# The num+labels=5 means that the final classification layer will have 5 outputs.
-# and will be unitialized, since the number of labels is not known.
-model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=5)
-print(model)
+    class Spy(torch.nn.Module):
+        def __init__(self, model, debug=False):
+            super().__init__()
+            self.model = model
+            self.debug = debug
+            self.inputs = []
+            self.outputs = []
 
-if model_name == "bert-base-cased":
-    my_spy = Spy(model.bert.encoder.layer[3])
-    model.bert.encoder.layer[3] = my_spy
-elif model_name == "mistralai/Mistral-7B-v0.1":
-    my_spy = Spy(model.model.layers[5])
-    model.model.layers[5] = my_spy
-else:
-    raise ValueError(f"Unknown model {model_name}")
+        def forward(self, *args, **kwargs):
+            self.inputs.append(args)
+            output = self.model(*args, **kwargs)
+            self.outputs.append(output)
+            if self.debug:
+                print(f'args {args}')
+                print(f'kwargs {kwargs}')
+                print(f'output {output}')
+            return output
 
-optimizer = AdamW(model.parameters(), lr=5e-5)
+    from transformers import AutoModelForSequenceClassification
 
-num_epochs = 3
-num_training_steps = num_epochs * len(train_dataloader)
-lr_scheduler = get_scheduler(
-    name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
-)
+    # The num+labels=5 means that the final classification layer will have 5 outputs.
+    # and will be unitialized, since the number of labels is not known.
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=5)
+    print(model)
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-model.to(device)
+    if model_name == "bert-base-cased":
+        my_spy = Spy(model.bert.encoder.layer[3])
+        model.bert.encoder.layer[3] = my_spy
+    elif model_name == "mistralai/Mistral-7B-v0.1":
+        my_spy = Spy(model.model.layers[5])
+        model.model.layers[5] = my_spy
+    else:
+        raise ValueError(f"Unknown model {model_name}")
 
-progress_bar = tqdm(range(num_training_steps))
+    optimizer = AdamW(model.parameters(), lr=5e-5)
 
-model.train()
-for epoch in range(num_epochs):
-    for batch in train_dataloader:
+    num_epochs = 3
+    num_training_steps = num_epochs * len(train_dataloader)
+    lr_scheduler = get_scheduler(
+        name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
+    )
+
+    if cuda:
+        device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    else:
+        device = torch.device("cpu")
+
+    model.to(device)
+
+    progress_bar = tqdm(range(num_training_steps))
+
+    model.train()
+    for epoch in range(num_epochs):
+        for batch in train_dataloader:
+            batch = {k: v.to(device) for k, v in batch.items()}
+
+            outputs = model(**batch)
+            loss = outputs.loss
+            loss.backward()
+
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad()
+            progress_bar.update(1)
+
+    metric = evaluate.load("accuracy")
+    model.eval()
+    for batch in eval_dataloader:
         batch = {k: v.to(device) for k, v in batch.items()}
+        with torch.no_grad():
+            outputs = model(**batch)
 
-        outputs = model(**batch)
-        loss = outputs.loss
-        loss.backward()
+        logits = outputs.logits
+        predictions = torch.argmax(logits, dim=-1)
+        metric.add_batch(predictions=predictions, references=batch["labels"])
 
-        optimizer.step()
-        lr_scheduler.step()
-        optimizer.zero_grad()
-        progress_bar.update(1)
+    print(metric.compute())
 
-metric = evaluate.load("accuracy")
-model.eval()
-for batch in eval_dataloader:
-    batch = {k: v.to(device) for k, v in batch.items()}
-    with torch.no_grad():
-        outputs = model(**batch)
+@click.command()
+@click.option('--model-name', default="bert-base-cased")
+@click.option('--cuda', is_flag=True)
+def cli(model_name, cuda):
+    run(model_name, cuda)
 
-    logits = outputs.logits
-    predictions = torch.argmax(logits, dim=-1)
-    metric.add_batch(predictions=predictions, references=batch["labels"])
-
-print(metric.compute())
+if __name__ == "__main__":
+    cli()
