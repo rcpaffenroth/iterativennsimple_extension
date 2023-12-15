@@ -48,7 +48,7 @@ class Spy(torch.nn.Module):
 from transformers import AutoModelForSequenceClassification
 #model_name = "bert-base-cased"
 model_name = "mistralai/Mistral-7B-v0.1"
-# The num+labels=5 means that the final classification layer will have 5 outputs
+# The num+labels=5 means that the final classification layer will have 5 outputs.
 # and will be unitialized, since the number of labels is not known.
 model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=5)
 print(model)
