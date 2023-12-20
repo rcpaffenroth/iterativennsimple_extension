@@ -12,12 +12,12 @@ import click
 
 # model_name = "bert-base-cased"
 # model_name = "mistralai/Mistral-7B-v0.1"
+# model_name =  "tiiuae/falcon-rw-1b"
 
-def run(model_name, cuda):
+def run(model_name, cuda, fine_tune=False):
     dataset = load_dataset("yelp_review_full")
-    dataset["train"][100]
 
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def tokenize_function(examples):
         return tokenizer(examples["text"], padding="max_length", truncation=True)
