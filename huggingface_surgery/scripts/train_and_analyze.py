@@ -113,8 +113,8 @@ def run(model_name, cuda, fine_tune):
     print(metric.compute())
 
 @click.command()
-#@click.option('--model-name', default="bert-base-cased")
-@click.option('--model-name', default="tiiuae/falcon-rw-1b")
+@click.option('--model-name', default="bert-base-cased")
+#@click.option('--model-name', default="tiiuae/falcon-rw-1b")
 @click.option('--cuda', is_flag=True)
 @click.option('--fine-tune', is_flag=True)
 def cli(model_name, cuda, fine_tune):
