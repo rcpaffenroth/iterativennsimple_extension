@@ -1,4 +1,5 @@
 from transformers import AutoModelForSequenceClassification
+from transformers import AutoModelForCausalLM
 #model = AutoModelForSequenceClassification.from_pretrained("t5-base")
 #model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased")
 #model = AutoModelForSequenceClassification.from_pretrained("mistralai/Mistral-7B-v0.1")
@@ -7,7 +8,6 @@ model = AutoModelForSequenceClassification.from_pretrained("tiiuae/falcon-rw-1b"
 
 print(model)
 
-# print(model.bert)
+model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-rw-1b")
 
-# for x in model.modules():
-#     print(x)
+print(model)
