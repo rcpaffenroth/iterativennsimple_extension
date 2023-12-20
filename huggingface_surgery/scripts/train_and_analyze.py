@@ -14,7 +14,7 @@ import click
 # model_name = "mistralai/Mistral-7B-v0.1"
 # model_name =  "tiiuae/falcon-rw-1b"
 
-def run(model_name, cuda, fine_tune=False):
+def run(model_name, cuda, fine_tune):
     dataset = load_dataset("yelp_review_full")
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -66,15 +66,7 @@ def run(model_name, cuda, fine_tune=False):
         model.model.layers[5] = my_spy
     else:
         raise ValueError(f"Unknown model {model_name}")
-
-    optimizer = AdamW(model.parameters(), lr=5e-5)
-
-    num_epochs = 3
-    num_training_steps = num_epochs * len(train_dataloader)
-    lr_scheduler = get_scheduler(
-        name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
-    )
-
+        
     if cuda:
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     else:
@@ -82,21 +74,30 @@ def run(model_name, cuda, fine_tune=False):
 
     model.to(device)
 
-    progress_bar = tqdm(range(num_training_steps))
+    if fine_tune:
+        optimizer = AdamW(model.parameters(), lr=5e-5)
 
-    model.train()
-    for epoch in range(num_epochs):
-        for batch in train_dataloader:
-            batch = {k: v.to(device) for k, v in batch.items()}
+        num_epochs = 3
+        num_training_steps = num_epochs * len(train_dataloader)
+        lr_scheduler = get_scheduler(
+            name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
+        )
 
-            outputs = model(**batch)
-            loss = outputs.loss
-            loss.backward()
+        progress_bar = tqdm(range(num_training_steps))
 
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
-            progress_bar.update(1)
+        model.train()
+        for epoch in range(num_epochs):
+            for batch in train_dataloader:
+                batch = {k: v.to(device) for k, v in batch.items()}
+
+                outputs = model(**batch)
+                loss = outputs.loss
+                loss.backward()
+
+                optimizer.step()
+                lr_scheduler.step()
+                optimizer.zero_grad()
+                progress_bar.update(1)
 
     metric = evaluate.load("accuracy")
     model.eval()
@@ -114,8 +115,9 @@ def run(model_name, cuda, fine_tune=False):
 @click.command()
 @click.option('--model-name', default="bert-base-cased")
 @click.option('--cuda', is_flag=True)
-def cli(model_name, cuda):
-    run(model_name, cuda)
+@click.option('--fine-tune', is_flag=True)
+def cli(model_name, cuda, fine_tune):
+    run(model_name, cuda, fine_tune)
 
 if __name__ == "__main__":
     cli()
