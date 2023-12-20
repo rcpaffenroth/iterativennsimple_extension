@@ -12,7 +12,7 @@ import click
 
 # model_name = "bert-base-cased"
 # model_name = "mistralai/Mistral-7B-v0.1"
-# model_name =  "tiiuae/falcon-rw-1b"
+# model_name = "tiiuae/falcon-rw-1b"
 
 def run(model_name, cuda, fine_tune):
     dataset = load_dataset("yelp_review_full")
@@ -113,7 +113,8 @@ def run(model_name, cuda, fine_tune):
     print(metric.compute())
 
 @click.command()
-@click.option('--model-name', default="bert-base-cased")
+#@click.option('--model-name', default="bert-base-cased")
+@click.option('--model-name', default="tiiuae/falcon-rw-1b")
 @click.option('--cuda', is_flag=True)
 @click.option('--fine-tune', is_flag=True)
 def cli(model_name, cuda, fine_tune):
