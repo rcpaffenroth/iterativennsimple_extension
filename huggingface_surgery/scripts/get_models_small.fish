@@ -1,8 +1,9 @@
 #! /usr/bin/env fish
 
-set -l model_download_list tiiuae/falcon-rw-1b tiiuae/falcon-7b tiiuae/falcon-40b
-# set -l model_download_list tiiuae/falcon-rw-1b 
-set -l data_download_list tiiuae/falcon-refinedweb ptb_text_only
+# set -l model_download_list tiiuae/falcon-rw-1b tiiuae/falcon-7b tiiuae/falcon-40b
+set -l model_download_list tiiuae/falcon-rw-1b 
+# set -l data_download_list tiiuae/falcon-refinedweb ptb_text_only
+set -l data_download_list ptb_text_only
 
 for model in $model_download_list
     message "Downloading $model"
