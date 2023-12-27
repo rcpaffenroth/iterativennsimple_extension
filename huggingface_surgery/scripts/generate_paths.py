@@ -44,7 +44,7 @@ tokenized_datasets = tokenized_datasets.remove_columns(["label", "text"])
 #     type (str, optional) — Either output type selected in [None, 'numpy', 'torch', 'tensorflow', 'pandas', 'arrow', 'jax']. None means __getitem__ returns python objects (default).
 tokenized_datasets.set_format("torch")
 
-train_dataloader = DataLoader(tokenized_datasets, shuffle=True, batch_size=64)
+train_dataloader = DataLoader(tokenized_datasets, shuffle=True, batch_size=4)
 
 class Spy(torch.nn.Module):
         def __init__(self, model, debug=False):
@@ -77,16 +77,21 @@ class Spy(torch.nn.Module):
             self.last_size = len(self.inputs)
 
 model = AutoModelForCausalLM.from_pretrained(model_name)
+my_spies = []
 
 if model_name == "tiiuae/falcon-rw-1b":
+    for i in range(len(model.transformer.h)):
+        my_spy = Spy(model.transformer.h[i].self_attention)
+        model.transformer.h[i].self_attention = my_spy
+        my_spies.append(my_spy)
     my_spy = Spy(model.transformer.h[3].self_attention)
     model.transformer.h[3].self_attention = my_spy
-elif model_name == "bert-base-cased":
-    my_spy = Spy(model.bert.encoder.layer[3])
-    model.bert.encoder.layer[3] = my_spy
-elif model_name == "mistralai/Mistral-7B-v0.1":
-    my_spy = Spy(model.model.layers[5])
-    model.model.layers[5] = my_spy
+# elif model_name == "bert-base-cased":
+#     my_spy = Spy(model.bert.encoder.layer[3])
+#     model.bert.encoder.layer[3] = my_spy
+# elif model_name == "mistralai/Mistral-7B-v0.1":
+#     my_spy = Spy(model.model.layers[5])
+#     model.model.layers[5] = my_spy
 else:
     raise ValueError(f"Unknown model {model_name}")
 
@@ -102,7 +107,8 @@ for i in range(2):
     print(my_spy.inputs[-1][0].shape)
     print(my_spy.outputs[-1][0].shape)
 
-    torch.save(my_spy.inputs[-1][0], f'inputs_{i}.pt')
-    torch.save(my_spy.outputs[-1][0], f'outputs_{i}.pt')
+    for j in range(len(my_spies)):
+        torch.save(my_spies[j].inputs[-1][0], f'inputs_{i}_{j}.pt')
+        torch.save(my_spies[j].outputs[-1][0], f'outputs_{i}_{j}.pt')
 
     my_spy.reset()
