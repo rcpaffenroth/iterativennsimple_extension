@@ -47,45 +47,44 @@ tokenized_datasets.set_format("torch")
 train_dataloader = DataLoader(tokenized_datasets, shuffle=True, batch_size=4)
 
 class Spy(torch.nn.Module):
-        def __init__(self, model, debug=False):
-            super().__init__()
-            self.model = model
-            self.debug = debug
-            self.inputs = []
-            self.outputs = []
-            self.last_size = 0
+    def __init__(self, model, debug=False):
+        super().__init__()
+        self.model = model
+        self.debug = debug
+        self.inputs = []
+        self.outputs = []
+        self.last_size = 0
 
-        def reset(self):
-            self.inputs = []
-            self.outputs = []
-            self.last_size = 0
+    def reset(self):
+        self.inputs = []
+        self.outputs = []
+        self.last_size = 0
 
-        def forward(self, *args, **kwargs):
-            self.inputs.append(args)
-            output = self.model(*args, **kwargs)
-            self.outputs.append(output)
-            if self.debug:
-                print(f'args {args}')
-                print(f'kwargs {kwargs}')
-                print(f'output {output}')
-            return output
+    def forward(self, *args, **kwargs):
+        self.inputs.append(args)
+        output = self.model(*args, **kwargs)
+        self.outputs.append(output)
+        if self.debug:
+            print(f'args {args}')
+            print(f'kwargs {kwargs}')
+            print(f'output {output}')
+        return output
 
-        def print_last_input(self):
-            print(f'{self.last_size} {len(self.inputs)}')
-            for i in range(self.last_size, len(self.inputs)):
-                print(f'{i} {self.inputs[i][0].shape}')
-            self.last_size = len(self.inputs)
+    def print_last_input(self):
+        print(f'{self.last_size} {len(self.inputs)}')
+        for i in range(self.last_size, len(self.inputs)):
+            print(f'{i} {self.inputs[i][0].shape}')
+        self.last_size = len(self.inputs)
 
 model = AutoModelForCausalLM.from_pretrained(model_name)
 my_spies = []
 
 if model_name == "tiiuae/falcon-rw-1b":
-    for i in range(len(model.transformer.h)):
-        my_spy = Spy(model.transformer.h[i].self_attention)
-        model.transformer.h[i].self_attention = my_spy
+    for i, tmp_model in enumerate(model.transformer.h):
+        my_spy = Spy(tmp_model)
+        model.transformer.h[i] = my_spy
         my_spies.append(my_spy)
-    my_spy = Spy(model.transformer.h[3].self_attention)
-    model.transformer.h[3].self_attention = my_spy
+
 # elif model_name == "bert-base-cased":
 #     my_spy = Spy(model.bert.encoder.layer[3])
 #     model.bert.encoder.layer[3] = my_spy
@@ -103,12 +102,10 @@ for i in range(2):
     batch = next(train_iterator)
     input = batch['input_ids']
 
-    output = model.generate(input, max_new_tokens=100, use_cache=False, do_sample=True, top_k=50, top_p=0.95, pad_token_id=tokenizer.eos_token_id)
-    print(my_spy.inputs[-1][0].shape)
-    print(my_spy.outputs[-1][0].shape)
+    output = model(input)
 
-    for j in range(len(my_spies)):
-        torch.save(my_spies[j].inputs[-1][0], f'inputs_{i}_{j}.pt')
-        torch.save(my_spies[j].outputs[-1][0], f'outputs_{i}_{j}.pt')
+    for j, my_spy in enumerate(my_spies):
+        torch.save(my_spy.inputs[-1][0], f'inputs_{i}_{j}.pt')
+        torch.save(my_spy.outputs[-1][0], f'outputs_{i}_{j}.pt')
 
     my_spy.reset()
