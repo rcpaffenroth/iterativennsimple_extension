@@ -1,2 +1,4 @@
 data/
 *.pt
+huggingface_downloads/
+huggingface_cache/
