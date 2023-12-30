@@ -14,7 +14,7 @@ data_download_list=['ptb_text_only']
 # %%
 for dataset_name in data_download_list:
     dataset = load_dataset(dataset_name, 
-                            cache_dir=cache_dir
+                            cache_dir=cache_dir)
     dataset.save_to_disk(save_dir / dataset_name)
 
 # %%
