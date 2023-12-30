@@ -1,6 +1,6 @@
 from transformers import AutoModelForCausalLM
 
-cache_dir = "/home/rcpaffenroth/projects/quick_project/huggingface_surgery/scripts/huggingface-downloads"
+cache_dir = "/mnt/research/rpaffenroth/data/huggingface-cache"
 
 model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-rw-1b", cache_dir=cache_dir)
 print(model)
