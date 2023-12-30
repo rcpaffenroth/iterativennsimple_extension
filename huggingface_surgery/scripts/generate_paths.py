@@ -6,6 +6,10 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM
 
+from datetime import datetime
+from pathlib import Path
+import json
+
 from accelerate import Accelerator
 
 model_name="tiiuae/falcon-rw-1b"
@@ -32,7 +36,7 @@ tokenizer.pad_token = tokenizer.eos_token
 # NOT TESTED: I think this gets a batch of samples as defined by the map function.
 # So, the longest refers to the longest sequence in the batch.
 def tokenize_function(examples):
-    return tokenizer(examples["text"], padding='longest', truncation=True, max_length=17)
+    return tokenizer(examples["text"], padding='longest', max_length=64, truncation=True)
 
 # NOTE: the map function does some fancy caching.  I.e., the first time you run it, it will
 # take a while.  But, the second time you run it, it will be much faster.
@@ -44,7 +48,7 @@ tokenized_datasets = tokenized_datasets.remove_columns(["label", "text"])
 #     type (str, optional) — Either output type selected in [None, 'numpy', 'torch', 'tensorflow', 'pandas', 'arrow', 'jax']. None means __getitem__ returns python objects (default).
 tokenized_datasets.set_format("torch")
 
-train_dataloader = DataLoader(tokenized_datasets, shuffle=True, batch_size=4)
+train_dataloader = DataLoader(tokenized_datasets, shuffle=True, batch_size=16)
 
 class Spy(torch.nn.Module):
     def __init__(self, model, debug=False):
@@ -77,35 +81,69 @@ class Spy(torch.nn.Module):
         self.last_size = len(self.inputs)
 
 model = AutoModelForCausalLM.from_pretrained(model_name)
-my_spies = []
+my_spies = {}
+my_spies_order = []
 
 if model_name == "tiiuae/falcon-rw-1b":
-    for i, tmp_model in enumerate(model.transformer.h):
-        my_spy = Spy(tmp_model)
-        model.transformer.h[i] = my_spy
-        my_spies.append(my_spy)
+    # Add a spy to the embedding layer.
+    embedding_spy = Spy(model.transformer.word_embeddings)
+    model.transformer.word_embeddings = embedding_spy
+    my_spies['embedding'] = embedding_spy
+    my_spies_order.append('embedding')
 
-# elif model_name == "bert-base-cased":
-#     my_spy = Spy(model.bert.encoder.layer[3])
-#     model.bert.encoder.layer[3] = my_spy
-# elif model_name == "mistralai/Mistral-7B-v0.1":
-#     my_spy = Spy(model.model.layers[5])
-#     model.model.layers[5] = my_spy
+    # Add a spy to each of the transformer layers.
+    transformer_layer_spies = []
+    for i, layer in enumerate(model.transformer.h):
+        transformer_layer_spies.append(Spy(layer))
+        model.transformer.h[i] = transformer_layer_spies[i]
+        my_spies[f'transformer_layer_{i}'] = transformer_layer_spies[i]
+        my_spies_order.append(f'transformer_layer_{i}')
+
+    # Add a spy to the final layer norm.
+    layer_norm_spy = Spy(model.transformer.ln_f)
+    model.transformer.ln_f = layer_norm_spy
+    my_spies['layer_norm'] = layer_norm_spy
+    my_spies_order.append('layer_norm')
+
+    # Add a spy to the output layer.
+    output_spy = Spy(model.lm_head)
+    model.lm_head = output_spy
+    my_spies['output'] = output_spy
+    my_spies_order.append('output')
 else:
     raise ValueError(f"Unknown model {model_name}")
 
 # Ok, now we do the same thing, but with a dataloader.
 model, train_dataloader = accelerator.prepare(model, train_dataloader)
-
 train_iterator = iter(train_dataloader)
-for i in range(2):
+
+# Make a directory to store the results using pathlib with the current time and date
+# as the name of the directory.
+now = datetime.now()
+current_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+# the case of the path is my home directory.
+save_path = Path.home() / Path(f'projects/quick_project/huggingface_surgery/data/paths/{current_time}')
+save_path.mkdir(parents=True, exist_ok=True)
+
+# Save my_spies_order to a file.
+with open(save_path / 'my_spies_order.json', 'w') as f:
+    json.dump(my_spies_order, f)
+
+for i in range(256):
     batch = next(train_iterator)
     input = batch['input_ids']
+    print(f'input {input.shape}')
+
+    print("Before model run - Memory Allocated: ", torch.cuda.memory_allocated()/10**9)
+    print("Before model run - Memory Reserved:  ", torch.cuda.memory_reserved()/10**9)
 
     output = model(input)
 
-    for j, my_spy in enumerate(my_spies):
-        torch.save(my_spy.inputs[-1][0], f'inputs_{i}_{j}.pt')
-        torch.save(my_spy.outputs[-1][0], f'outputs_{i}_{j}.pt')
+    print("After model run - Memory Allocated:  ", torch.cuda.memory_allocated()/10**9)
+    print("After model run - Memory Reserved:   ", torch.cuda.memory_reserved()/10**9)
 
-    my_spy.reset()
+    for j, my_spy_name in enumerate(my_spies_order):
+        torch.save(my_spies[my_spy_name].inputs[-1][0], save_path / f'{my_spy_name}_inputs_batch_{i}.pt')
+        torch.save(my_spies[my_spy_name].outputs[-1][0], save_path / f'{my_spy_name}_outputs_batch_{i}.pt')
+        my_spies[my_spy_name].reset()
+    torch.cuda.empty_cache()
