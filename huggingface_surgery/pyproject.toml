@@ -1,10 +1,13 @@
 [tool.poetry]
-name = "template"
+name = "huggingface_surgery"
 version = "0.1.0"
 description = "template"
 authors = ["Randy Paffenroth <rcpaffenroth@wpi.edu>"]
 license = "BSD 3-Clause License"
 readme = "README.md"
+packages = [
+    { include = "huggingface_surgery", from = "." },
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"

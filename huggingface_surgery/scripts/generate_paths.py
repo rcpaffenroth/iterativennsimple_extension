@@ -12,6 +12,8 @@ import json
 
 from accelerate import Accelerator
 
+from huggingface_surgery.model_splitter import model_splitter
+
 model_name="tiiuae/falcon-rw-1b"
 dataset_name="yelp_review_full"
 accelerator = Accelerator()
@@ -84,34 +86,8 @@ model = AutoModelForCausalLM.from_pretrained(model_name)
 my_spies = {}
 my_spies_order = []
 
-if model_name == "tiiuae/falcon-rw-1b":
-    # Add a spy to the embedding layer.
-    embedding_spy = Spy(model.transformer.word_embeddings)
-    model.transformer.word_embeddings = embedding_spy
-    my_spies['embedding'] = embedding_spy
-    my_spies_order.append('embedding')
+my_spies = model_splitter(model, model_name, wrapper=Spy)
 
-    # Add a spy to each of the transformer layers.
-    transformer_layer_spies = []
-    for i, layer in enumerate(model.transformer.h):
-        transformer_layer_spies.append(Spy(layer))
-        model.transformer.h[i] = transformer_layer_spies[i]
-        my_spies[f'transformer_layer_{i}'] = transformer_layer_spies[i]
-        my_spies_order.append(f'transformer_layer_{i}')
-
-    # Add a spy to the final layer norm.
-    layer_norm_spy = Spy(model.transformer.ln_f)
-    model.transformer.ln_f = layer_norm_spy
-    my_spies['layer_norm'] = layer_norm_spy
-    my_spies_order.append('layer_norm')
-
-    # Add a spy to the output layer.
-    output_spy = Spy(model.lm_head)
-    model.lm_head = output_spy
-    my_spies['output'] = output_spy
-    my_spies_order.append('output')
-else:
-    raise ValueError(f"Unknown model {model_name}")
 
 # Ok, now we do the same thing, but with a dataloader.
 model, train_dataloader = accelerator.prepare(model, train_dataloader)
@@ -129,6 +105,14 @@ save_path.mkdir(parents=True, exist_ok=True)
 with open(save_path / 'my_spies_order.json', 'w') as f:
     json.dump(my_spies_order, f)
 
+model_path = save_path / 'model'
+model_path.mkdir(parents=True, exist_ok=True)
+for j, my_spy_name in enumerate(my_spies_order):
+    try:
+        torch.save(my_spies[my_spy_name].model, model_path / f'{my_spy_name}.pt')
+    except AttributeError:
+        print(f'Could not save {my_spy_name}')
+
 for i in range(256):
     batch = next(train_iterator)
     input = batch['input_ids']
@@ -142,7 +126,7 @@ for i in range(256):
     print("After model run - Memory Allocated:  ", torch.cuda.memory_allocated()/10**9)
     print("After model run - Memory Reserved:   ", torch.cuda.memory_reserved()/10**9)
 
-    for j, my_spy_name in enumerate(my_spies_order):
+    for j, my_spy_name in enumerate(my_spies.keys()):
         torch.save(my_spies[my_spy_name].inputs[-1][0], save_path / f'{my_spy_name}_inputs_batch_{i}.pt')
         torch.save(my_spies[my_spy_name].outputs[-1][0], save_path / f'{my_spy_name}_outputs_batch_{i}.pt')
         my_spies[my_spy_name].reset()
