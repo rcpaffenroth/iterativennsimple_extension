@@ -9,6 +9,7 @@ from transformers import AutoModelForCausalLM
 from datetime import datetime
 from pathlib import Path
 import json
+from icecream import ic
 
 from accelerate import Accelerator
 
