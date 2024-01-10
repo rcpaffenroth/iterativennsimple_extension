@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "huggingface_surgery"
+name = "inn_sequence"
 version = "0.1.0"
 description = "template"
 authors = ["Randy Paffenroth <rcpaffenroth@wpi.edu>"]
 license = "BSD 3-Clause License"
 readme = "README.md"
 packages = [
-    { include = "huggingface_surgery", from = "." },
+    { include = "inn_sequence", from = "." },
 ]
 
 [tool.poetry.dependencies]
