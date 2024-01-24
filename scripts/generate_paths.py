@@ -13,7 +13,7 @@ from icecream import ic
 
 from accelerate import Accelerator
 
-from innsequence.model_splitter import model_splitter
+from inn_sequence.model_splitter import model_splitter
 
 model_name="tiiuae/falcon-rw-1b"
 dataset_name="yelp_review_full"
