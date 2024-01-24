@@ -13,7 +13,7 @@ from icecream import ic
 
 from accelerate import Accelerator
 
-from huggingface_surgery.model_splitter import model_splitter
+from innsequence.model_splitter import model_splitter
 
 model_name="tiiuae/falcon-rw-1b"
 dataset_name="yelp_review_full"
@@ -99,7 +99,7 @@ train_iterator = iter(train_dataloader)
 now = datetime.now()
 current_time = now.strftime("%Y-%m-%d_%H-%M-%S")
 # the case of the path is my home directory.
-save_path = Path.home() / Path(f'projects/quick_project/huggingface_surgery/data/paths/{current_time}')
+save_path = Path.home() / Path(f'projects/inn_sequence/data/paths/{current_time}')
 save_path.mkdir(parents=True, exist_ok=True)
 
 # Save my_spies_order to a file.
