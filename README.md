@@ -27,7 +27,7 @@ The list of steps required to clone a Git repository with submodules is:
     Issue a git submodule init command.
     Issue a git submodule update command.
 
-it init and update alternative
+Git init and update alternative
 
 There is actually an alternative to going through these three steps. You can use the –recurse-submodules switch on the clone. This approach, shown below, might be easier.
 
