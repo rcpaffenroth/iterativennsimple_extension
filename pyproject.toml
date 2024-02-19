@@ -6,7 +6,7 @@ authors = ["Randy Paffenroth <rcpaffenroth@wpi.edu>"]
 license = "BSD 3-Clause License"
 readme = "README.md"
 packages = [
-    { include = "inn_sequence", from = "." },
+    { include = "iterativennsimple_extension", from = "." },
 ]
 
 [tool.poetry.dependencies]

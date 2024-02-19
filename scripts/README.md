@@ -1,0 +1,1 @@
+A place to put scripts that are useful for the projec. This could include scripts for data cleaning, data exploration, and data analysis. 
