@@ -1,14 +1,7 @@
 # Introduction
 
-Working on the huggingface surgey idea
-
+A template for projects that build off of iterativenn simple.
 # Notes
-
-Needs rust compiler to be installed
-
-```bash
-sudo apt install rustc cargo
-```
 
 ## Submodule
 This includes iterativenn as a submodule.  To clone the submodule use the following command:
